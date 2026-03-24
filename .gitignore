@@ -1,0 +1,77 @@
+# Byte-compiled / optimized / DLL files
+
+**pycache**/
+*.py[cod]
+*$py.class
+
+# C extensions
+
+*.so
+
+# Virtual environments
+
+venv/
+.env/
+.venv/
+env/
+
+# VS Code / IDE settings
+
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Jupyter Notebook checkpoints
+
+.ipynb_checkpoints/
+
+# Logs and debug files
+
+*.log
+
+# OS files
+
+.DS_Store
+Thumbs.db
+
+# Python packaging
+
+build/
+dist/
+*.egg-info/
+
+# Outputs (your project-specific folder)
+
+outputs/
+
+# Model checkpoints / large files
+
+*.pt
+*.pth
+*.bin
+*.ckpt
+*.safetensors
+
+# Dataset files (optional – uncomment if needed)
+
+# data/*.csv
+
+# data/*.json
+
+# data/*.txt
+
+# HuggingFace / cache (common in LLM work)
+
+.cache/
+huggingface/
+datasets/
+
+# Temporary files
+
+*.tmp
+*.temp
+
+# Environment variables
+
+.env
