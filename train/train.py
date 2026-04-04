@@ -1,4 +1,5 @@
 import torch
+import wandb
 
 from trl import SFTTrainer
 from transformers import TrainingArguments, TrainerCallback
@@ -13,6 +14,12 @@ class ClearCacheCallback(TrainerCallback):
 
 def train():
     config = Config()
+
+    wandb.init(
+        project=config.wandb_project,
+        name=config.wandb_run_name or None,
+        config=vars(config),
+    )
 
     model, tokenizer = load_model(config)
     model = apply_lora(model, config)
@@ -35,7 +42,7 @@ def train():
         bf16=True,
         fp16=False,
         max_grad_norm=1.0,
-        report_to="none"
+        report_to="wandb",
     )
 
     trainer = SFTTrainer(
