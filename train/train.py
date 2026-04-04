@@ -1,13 +1,11 @@
-import os
 import torch
-os.environ["ACCELERATE_MIXED_PRECISION"] = "no"
 
 from trl import SFTTrainer
 from transformers import TrainingArguments, TrainerCallback
 from config.config import Config
 from data.preprocess import get_dataset
 from model.load_model import load_model
-from model.lora import get_lora_config
+from model.lora import apply_lora
 
 class ClearCacheCallback(TrainerCallback):
     def on_evaluate(self, args, state, control, **kwargs):
@@ -17,6 +15,7 @@ def train():
     config = Config()
 
     model, tokenizer = load_model(config)
+    model = apply_lora(model, config)
     train_ds, val_ds = get_dataset(config, tokenizer)
 
     training_args = TrainingArguments(
@@ -33,7 +32,7 @@ def train():
         eval_strategy="steps",
         eval_steps=config.eval_steps,
         save_steps=config.eval_steps,
-        bf16=False,
+        bf16=True,
         fp16=False,
         max_grad_norm=1.0,
         report_to="none"
@@ -44,7 +43,6 @@ def train():
         train_dataset=train_ds,
         eval_dataset=val_ds,
         args=training_args,
-        peft_config=get_lora_config(config),
         processing_class=tokenizer,
     )
 

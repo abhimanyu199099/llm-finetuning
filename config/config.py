@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 @dataclass
 class Config:
-    model_name: str = "google/gemma-2b"
+    model_name: str = "google/gemma-3-12b"
     dataset_name: str = "felixZzz/numina_162k_olympiads_problems"
     max_length: int = 1024
     batch_size: int = 1
@@ -13,4 +13,8 @@ class Config:
     lora_alpha: int = 16
     lora_dropout: float = 0.05
     eval_steps: int = 200
+    # GRPO-specific
+    grpo_lr: float = 1e-6
+    num_generations: int = 4
+    max_completion_length: int = 512
 

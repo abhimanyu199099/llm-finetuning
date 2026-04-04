@@ -44,6 +44,7 @@ dist/
 # Outputs (your project-specific folder)
 
 outputs/
+outputs_grpo/
 
 # Model checkpoints / large files
 
