@@ -1,5 +1,4 @@
-from unsloth import FastLanguageModel, PatchFastRL
-PatchFastRL("GRPO", FastLanguageModel)
+import wandb
 
 from trl import GRPOTrainer, GRPOConfig
 from config.config import Config
@@ -11,6 +10,12 @@ from train.rewards import correctness_reward, format_reward
 
 def train_grpo():
     config = Config()
+
+    wandb.init(
+        project=config.wandb_project,
+        name=config.wandb_run_name or None,
+        config=vars(config),
+    )
 
     model, tokenizer = load_model(config)
     model = apply_lora(model, config)
@@ -27,7 +32,7 @@ def train_grpo():
         eval_strategy="steps",
         eval_steps=config.eval_steps,
         save_steps=config.eval_steps,
-        report_to="none",
+        report_to="wandb",
         num_generations=config.num_generations,
         max_completion_length=config.max_completion_length,
         temperature=1.0,

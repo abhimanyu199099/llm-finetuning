@@ -1,4 +1,5 @@
 import torch
+import wandb
 
 from trl import SFTTrainer
 from transformers import TrainingArguments, TrainerCallback
@@ -6,13 +7,23 @@ from config.config import Config
 from data.preprocess import get_dataset
 from model.load_model import load_model
 from model.lora import apply_lora
+from train.masking import MaskingCollator
+
 
 class ClearCacheCallback(TrainerCallback):
-    def on_evaluate(self, args, state, control, **kwargs):
+    def on_evaluate(self, _args, _state, _control, **_kwargs):
         torch.cuda.empty_cache()
 
-def train():
-    config = Config()
+
+def train(config=None):
+    if config is None:
+        config = Config()
+
+    wandb.init(
+        project=config.wandb_project,
+        name=config.wandb_run_name or None,
+        config=vars(config),
+    )
 
     model, tokenizer = load_model(config)
     model = apply_lora(model, config)
@@ -22,7 +33,6 @@ def train():
         output_dir="./outputs",
         per_device_train_batch_size=config.batch_size,
         per_device_eval_batch_size=1,
-        prediction_loss_only=True,
         gradient_accumulation_steps=config.grad_accum,
         dataloader_num_workers=4,
         dataloader_pin_memory=True,
@@ -35,7 +45,7 @@ def train():
         bf16=True,
         fp16=False,
         max_grad_norm=1.0,
-        report_to="none"
+        report_to="wandb",
     )
 
     trainer = SFTTrainer(
@@ -43,7 +53,7 @@ def train():
         train_dataset=train_ds,
         eval_dataset=val_ds,
         args=training_args,
-        processing_class=tokenizer,
+        data_collator=MaskingCollator(tokenizer, strategy=config.masking_strategy),
     )
 
     trainer.add_callback(ClearCacheCallback)

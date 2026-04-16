@@ -1,0 +1,13 @@
+# Core training
+unsloth[cu124]
+torch
+trl
+transformers
+datasets
+peft
+
+# Logging
+wandb
+
+# Env vars
+python-dotenv
