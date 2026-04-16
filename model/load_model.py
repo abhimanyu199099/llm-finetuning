@@ -7,6 +7,7 @@ def load_model(config):
         model_name=config.model_name,
         max_seq_length=config.max_length,
         load_in_4bit=True,
+        attn_implementation="flash_attention_2",
     )
     tokenizer.pad_token = tokenizer.eos_token
     tokenizer = patch_tokenizer(tokenizer)

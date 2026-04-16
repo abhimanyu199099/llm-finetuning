@@ -1,8 +1,5 @@
 import wandb
 
-from unsloth import FastLanguageModel, PatchFastRL
-PatchFastRL("GRPO", FastLanguageModel)
-
 from trl import GRPOTrainer, GRPOConfig
 from config.config import Config
 from data.grpo_dataset import get_grpo_dataset
