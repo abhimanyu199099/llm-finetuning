@@ -2,67 +2,108 @@
 
 ## Goal
 
-Train Gemma 3 12B to reason through olympiad-level math problems, producing structured outputs with explicit chain-of-thought inside `<think>` tags and a final answer inside `<answer>` tags.
+Fine-tune Qwen2.5-7B-Instruct to reason through math problems, producing structured outputs with chain-of-thought inside `<think>` tags and a final answer inside `<answer>` tags. Training proceeds in two stages:
 
-Training proceeds in two stages:
-1. **SFT** — teach the model the output format and domain knowledge by supervised imitation on problem/solution pairs
-2. **GRPO** — refine reasoning quality via reinforcement learning, rewarding correct and well-formatted answers
+1. **SFT** — supervised imitation on OpenThoughts-114k problem/solution pairs
+2. **GRPO** — reinforcement learning to refine reasoning quality, rewarding correct and well-formatted answers
+
+Target: ≥0.90 accuracy on held-out `\boxed{}` extraction eval, and near-SOTA performance on popular math, science, code and QA benchmarks.
 
 ## Architecture Decisions
 
 ### Tokenizer patching instead of adding new tokens
-Gemma 3 has 256 reserved `<unusedN>` slots in its vocabulary. The four reasoning tokens (`<think>`, `</think>`, `<answer>`, `</answer>`) are remapped to `<unused0-3>`. This avoids resizing the embedding matrix, which would require re-initializing weights and training from a worse starting point.
+Qwen2.5 has unused FIM (fill-in-the-middle) tokens in its vocabulary. The four reasoning tokens (`<think>`, `</think>`, `<answer>`, `</answer>`) are remapped to these slots. This avoids resizing the embedding matrix, which would require re-initializing weights.
 
 See: `model/tokenizer_utils.py`
 
-### Unsloth for both SFT and GRPO
-SFT uses `FastLanguageModel` + `SFTTrainer`. GRPO uses `PatchFastRL("GRPO", FastLanguageModel)` before importing `GRPOTrainer`, which applies Unsloth's kernel optimizations to the RL training loop. The model loading and LoRA application code is shared between both modes.
+### Unsloth FastLanguageModel with 4-bit quantization
+Model is loaded via `unsloth.FastLanguageModel` in 4-bit NF4. This halves VRAM usage compared to bf16. The 4-bit model cannot be cast with `.to(dtype)` or merged with `merge_and_unload()` — inference must run with the adapter attached.
+
+### LoRA configuration
+Applied to all linear layers: `q_proj`, `k_proj`, `v_proj`, `o_proj`, `gate_proj`, `up_proj`, `down_proj`. Current config: r=32, alpha=64, dropout=0.0.
 
 ### GRPO reward design
-Two reward functions are combined:
-
-- **`correctness_reward`** (weight 1.0): Extracts text from `<answer>...</answer>` and does an exact string match against the ground truth solution. Binary 1.0 / 0.0.
-- **`format_reward`** (weight 0.2): Awards a small bonus for structurally correct output — both `<think>` and `<answer>` tags present. Encourages the model to maintain format even when the answer is wrong.
-
-The format reward is intentionally small so it doesn't dominate over correctness.
-
-### LoRA target modules
-Only `q_proj` and `v_proj` are targeted. This is conservative — adding `k_proj`, `o_proj`, `gate_proj`, `up_proj`, `down_proj` would increase trainable parameters and potentially improve quality at the cost of memory.
-
-### beta=0.0 in GRPO
-No reference model is loaded (`beta=0.0` disables KL divergence penalty). This saves significant VRAM. If the model starts drifting too far from coherent outputs during GRPO, increase `beta` to 0.01–0.1.
+Two reward functions:
+- **`correctness_reward`**: Extracts text from `<answer>...</answer>` and exact-matches against ground truth. Binary 1.0 / 0.0.
+- **`format_reward`**: Small bonus (0.2) for structurally correct output — both `<think>` and `<answer>` tags present. Kept small so it doesn't dominate over correctness.
 
 ## Data Pipeline
 
+### SFT
 ```
-Raw dataset (162k problems)
-  → filter difficulty >= 9
-  → shuffle with seed=42
-  → take up to 20,000
-  → format (SFT: text template | GRPO: message list + solution column)
-  → 95/5 train/eval split
+OpenThoughts-114k (raw)
+  → shuffle seed=42
+  → take first train_subset_size (default 80,000)
+  → apply chat template + tokenize
+  → build masked labels (strategy c1–c6)
+  → held-out eval = examples after train_subset_size index
 ```
 
-The same filtering and subsetting logic is duplicated between `data/preprocess.py` and `data/grpo_dataset.py`. If the dataset strategy changes, update both.
+The held-out split is deterministic: same shuffle seed, different index range. This prevents leakage from training data into eval.
+
+### GRPO
+```
+OpenThoughts-114k (raw)
+  → extract problem prompt + reference answer
+  → format as message list for GRPOTrainer
+```
+
+## Loss Masking Strategies
+
+The `MaskingCollator` in `train/masking.py` applies one of five strategies:
+
+- **c1**: Full sequence loss — train on everything including think tokens
+- **c2**: Answer-only — mask the think phase, only backprop through final answer
+- **c3**: Explore-phase — mask the answer, only backprop through think phase
+- **c5**: Random half of think blocks resampled at each training step
+- **c6**: Random half of think blocks with a frozen per-example seed (consistent across epochs)
+
+c4 is deferred. c2 is the current primary experiment (answer-only loss, cleaner signal).
 
 ## Evaluation
 
-Evaluation (`run.py --mode eval`) runs greedy decoding on 100 val examples and computes `\boxed{}` extraction accuracy. This matches the format used in math competition datasets. The eval uses the SFT val split, not the GRPO dataset format.
+### Held-out eval (`--mode eval`)
+Runs batched greedy decoding (batch=8, left-padded) on held-out examples. Extracts `\boxed{}` content using a brace-counting parser with `rfind` to find the last `\boxed{}`. Normalizes whitespace and LaTeX spacing tokens before comparison.
 
-## Multi-GPU
+### Benchmark eval (`--mode bench`)
+Uses lm-eval 0.4.4 (`python -m lm_eval`). Available tasks confirmed installed on the cluster:
 
-Both SFT and GRPO run under DDP via `torchrun`. No code changes needed — `Trainer`/`GRPOTrainer` handle device placement automatically. Launch with:
-```bash
-torchrun --nproc_per_node=NUM_GPUS run.py --mode sft|grpo
-```
+| Key | lm-eval task name |
+|---|---|
+| `math` | `hendrycks_math` |
+| `mmlu` | `mmlu` |
+| `gpqa` | `gpqa_diamond_generative_n_shot` |
 
-GRPO does not support FSDP (Unsloth limitation as of early 2026). Use DDP only.
+Note: `humaneval`, `aime`, and `livecodebench` are not bundled in lm-eval 0.4.4 and are not available on this install. `minerva_math` is available as an alternative to `hendrycks_math` with more lenient scoring.
+
+The `--num-fewshot` flag (default 0) controls few-shot examples. For math, `--num-fewshot 4` significantly improves exact_match scores by showing the model expected output format.
+
+## Cluster Setup
+
+- Hardware: A100-80GB (single GPU per job)
+- Conda env: `post-training`
+- Project path: `/nfs_home/users/dhruvk/team-post-training/llm-finetuning`
+- HF token: loaded from `.env` in project root (`HF_TOKEN=hf_...`)
+- SLURM scripts in `scripts/`
+
+Known issues:
+- Flash Attention 2 is broken (conflicting flash_attn wheel). Unsloth falls back to xformers automatically. No action needed.
 
 ## Outputs
 
 | Mode | Output dir |
 |---|---|
-| SFT | `./outputs/` |
-| GRPO | `./outputs_grpo/` |
+| SFT checkpoints | `./outputs/checkpoint-N/` |
+| GRPO checkpoints | `./outputs_grpo/` |
+| Benchmark results | `./outputs/bench_TIMESTAMP/` |
 
-Checkpoints are saved every `eval_steps` (default 200) steps.
+Checkpoints save every `eval_steps` (default 200) steps.
+
+## Baseline Results (checkpoint-2000, c2 masking)
+
+| Benchmark | Score |
+|---|---|
+| MMLU | 0.71 |
+| Hendrycks Math (0-shot exact_match) | 0.023 |
+
+Math exact_match is low but expected at 0-shot; use `--num-fewshot 4` or the custom `evaluate.py` for meaningful math scores.
