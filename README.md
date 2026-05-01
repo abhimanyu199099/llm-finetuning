@@ -1,68 +1,83 @@
-# LLM Fine-tuning: Olympiad Math Reasoning
+# LLM Fine-tuning: Math Reasoning
 
-Fine-tuning **Gemma 3 12B** on olympiad-level math problems using Unsloth, with support for both supervised fine-tuning (SFT) and reinforcement learning via GRPO.
-
-## Dataset
-
-[felixZzz/numina_162k_olympiads_problems](https://huggingface.co/datasets/felixZzz/numina_162k_olympiads_problems) — filtered to high-difficulty problems (`gpt_difficulty_parsed >= 9`), capped at 20,000 examples, 95/5 train/eval split.
+Fine-tuning **Qwen2.5-7B-Instruct** on [OpenThoughts-114k](https://huggingface.co/datasets/open-thoughts/OpenThoughts-114k) using Unsloth, with support for supervised fine-tuning (SFT), GRPO reinforcement learning, custom held-out evaluation, and standard benchmark evaluation via lm-eval.
 
 ## Setup
 
 ```bash
-pip install unsloth trl transformers datasets peft
+pip install -r requirements.txt
 ```
 
-> Requires Linux + CUDA. Multi-GPU training uses DDP via `torchrun`.
+Requires Linux + CUDA. Tested on A100-80GB.
 
 ## Usage
 
 **Supervised fine-tuning (SFT):**
 ```bash
-python run.py --mode sft
-# multi-GPU:
-torchrun --nproc_per_node=NUM_GPUS run.py --mode sft
+python run.py --mode sft [--masking c1|c2|c3|c5|c6] [--train-subset-size 80000]
 ```
 
 **GRPO reinforcement learning:**
 ```bash
 python run.py --mode grpo
-# multi-GPU:
-torchrun --nproc_per_node=NUM_GPUS run.py --mode grpo
 ```
 
-**Evaluation:**
+**Held-out evaluation (custom, uses `\boxed{}` extraction):**
 ```bash
-python run.py --mode eval
+python run.py --mode eval [--checkpoint outputs/checkpoint-2000] [--n-examples 100]
+```
+
+**Benchmark evaluation (lm-eval harness):**
+```bash
+# presets
+python run.py --mode bench --preset easy          # math + mmlu
+python run.py --mode bench --preset hard          # math + gpqa
+
+# individual benchmarks
+python run.py --mode bench --benchmarks math mmlu gpqa
+
+# with a trained checkpoint
+python run.py --mode bench --preset easy --checkpoint outputs/checkpoint-2000
+
+# few-shot
+python run.py --mode bench --benchmarks math --num-fewshot 4
+```
+
+**SLURM:**
+```bash
+sbatch scripts/run_bench.sh --preset easy --checkpoint outputs/checkpoint-2000
+sbatch scripts/run_sft.sh
 ```
 
 ## Project Structure
 
 ```
 ├── config/
-│   └── config.py           # All hyperparameters in one dataclass
+│   └── config.py               # All hyperparameters in one dataclass
 ├── data/
-│   ├── preprocess.py       # Dataset loading and formatting for SFT
-│   └── grpo_dataset.py     # Dataset formatting for GRPO (prompt + solution columns)
+│   ├── preprocess.py           # Dataset loading and tokenization for SFT
+│   └── grpo_dataset.py         # Dataset formatting for GRPO
 ├── model/
-│   ├── load_model.py       # FastLanguageModel loading (4-bit, Unsloth)
-│   ├── lora.py             # LoRA adapter application
-│   └── tokenizer_utils.py  # Patches <unused> slots with reasoning special tokens
+│   ├── load_model.py           # Unsloth FastLanguageModel (4-bit)
+│   ├── lora.py                 # LoRA adapter application
+│   └── tokenizer_utils.py      # Remaps Qwen FIM tokens to <think>/<answer> specials
 ├── train/
-│   ├── train.py            # SFT training loop (SFTTrainer)
-│   ├── grpo.py             # GRPO training loop (GRPOTrainer + PatchFastRL)
-│   └── rewards.py          # Reward functions: correctness + format
+│   ├── train.py                # SFT training loop (SFTTrainer + MaskingCollator)
+│   ├── grpo.py                 # GRPO training loop (GRPOTrainer)
+│   ├── masking.py              # Loss masking strategies c1–c6
+│   └── rewards.py              # GRPO reward functions: correctness + format
 ├── eval/
-│   ├── evaluate.py         # Greedy decoding evaluation on val set
-│   └── metrics.py          # \boxed{} extraction and accuracy computation
-└── run.py                  # Entry point: --mode sft | grpo | eval
+│   ├── evaluate.py             # Batched greedy eval on held-out split
+│   ├── bench.py                # lm-eval benchmark dispatcher
+│   └── metrics.py              # \boxed{} extraction and accuracy
+├── scripts/
+│   ├── run_bench.sh            # SLURM script for benchmark eval
+│   ├── run_sft.sh              # SLURM script for SFT training
+│   ├── run_eval_tiny.sh        # SLURM script for quick held-out eval
+│   ├── debug.sh                # SLURM script to inspect dataset
+│   └── check_gpu_util.sh       # SLURM script to check GPU utilization
+└── run.py                      # Entry point: --mode sft | grpo | eval | bench
 ```
-
-## Key Design Decisions
-
-- **Special tokens** — `<think>`, `</think>`, `<answer>`, `</answer>` are mapped to Gemma 3's pre-existing `<unused0-3>` token slots, so no embedding resize is needed.
-- **GRPO rewards** — two functions: `correctness_reward` (1.0/0.0 exact match on `<answer>` content) and `format_reward` (0.2 bonus for using both `<think>` and `<answer>` tags).
-- **4-bit quantization** — handled by Unsloth's `FastLanguageModel`, no manual `BitsAndBytesConfig` needed.
-- **LoRA** — applied to `q_proj` and `v_proj` with `r=4`, `alpha=16`.
 
 ## Configuration
 
@@ -70,15 +85,39 @@ All settings live in `config/config.py`:
 
 | Field | Default | Description |
 |---|---|---|
-| `model_name` | `google/gemma-3-12b` | Base model |
-| `max_length` | `1024` | Max sequence length |
+| `model_name` | `Qwen/Qwen2.5-7B-Instruct` | Base model |
+| `dataset_name` | `open-thoughts/OpenThoughts-114k` | Training dataset |
+| `train_subset_size` | `80000` | Examples used for training |
+| `max_length` | `8192` | Max sequence length |
 | `batch_size` | `1` | Per-device batch size |
-| `grad_accum` | `4` | Gradient accumulation steps |
+| `grad_accum` | `16` | Gradient accumulation steps |
 | `lr` | `1e-5` | SFT learning rate |
-| `grpo_lr` | `1e-6` | GRPO learning rate |
-| `num_generations` | `4` | GRPO group size |
-| `max_completion_length` | `512` | Max tokens generated per GRPO step |
-| `lora_r` | `4` | LoRA rank |
-| `lora_alpha` | `16` | LoRA alpha |
+| `lora_r` | `32` | LoRA rank |
+| `lora_alpha` | `64` | LoRA alpha |
+| `lora_dropout` | `0.0` | LoRA dropout |
 | `epochs` | `2` | Training epochs |
 | `eval_steps` | `200` | Eval/checkpoint frequency |
+| `grpo_lr` | `1e-6` | GRPO learning rate |
+| `num_generations` | `4` | GRPO group size |
+| `max_completion_length` | `512` | Max tokens per GRPO completion |
+| `masking_strategy` | `c1` | Loss masking strategy for SFT |
+
+## Loss Masking Strategies
+
+| Strategy | Description |
+|---|---|
+| `c1` | Full sequence loss |
+| `c2` | Answer-only loss (mask think phase) |
+| `c3` | Explore-phase loss (mask answer) |
+| `c5` | Random half of think blocks, resampled each step |
+| `c6` | Random half of think blocks, frozen seed per example |
+
+## Benchmarks
+
+Available via `--mode bench` (backed by lm-eval 0.4.4):
+
+| Key | Task | Metric |
+|---|---|---|
+| `math` | hendrycks_math | exact_match |
+| `mmlu` | mmlu | acc |
+| `gpqa` | gpqa_diamond_generative_n_shot | acc |
