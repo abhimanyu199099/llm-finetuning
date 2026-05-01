@@ -7,7 +7,7 @@ def apply_lora(model, config):
         r=config.lora_r,
         lora_alpha=config.lora_alpha,
         lora_dropout=config.lora_dropout,
-        target_modules=["q_proj", "v_proj"],
+        target_modules=["q_proj", "k_proj", "v_proj", "o_proj","gate_proj", "up_proj", "down_proj"],
         bias="none",
         use_gradient_checkpointing=True,
     )
