@@ -29,7 +29,8 @@ env/
 # Logs and debug files
 
 *.log
-
+*.out
+*.err
 # OS files
 
 .DS_Store
@@ -67,12 +68,13 @@ outputs_grpo/
 .cache/
 huggingface/
 datasets/
-
+evalchemy/
+wandb/
+unsloth_compiled_cache/
 # Temporary files
 
 *.tmp
 *.temp
 
 # Environment variables
-
 .env

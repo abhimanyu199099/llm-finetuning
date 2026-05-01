@@ -1,5 +1,3 @@
-import wandb
-
 from trl import GRPOTrainer, GRPOConfig
 from config.config import Config
 from data.grpo_dataset import get_grpo_dataset
@@ -10,12 +8,6 @@ from train.rewards import correctness_reward, format_reward
 
 def train_grpo():
     config = Config()
-
-    wandb.init(
-        project=config.wandb_project,
-        name=config.wandb_run_name or None,
-        config=vars(config),
-    )
 
     model, tokenizer = load_model(config)
     model = apply_lora(model, config)
@@ -32,7 +24,7 @@ def train_grpo():
         eval_strategy="steps",
         eval_steps=config.eval_steps,
         save_steps=config.eval_steps,
-        report_to="wandb",
+        report_to="none",
         num_generations=config.num_generations,
         max_completion_length=config.max_completion_length,
         temperature=1.0,
@@ -50,3 +42,4 @@ def train_grpo():
         processing_class=tokenizer,
     )
     trainer.train()
+

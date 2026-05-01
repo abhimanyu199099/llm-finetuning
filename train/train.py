@@ -1,5 +1,4 @@
 import torch
-import wandb
 
 from trl import SFTTrainer
 from transformers import TrainingArguments, TrainerCallback
@@ -19,12 +18,6 @@ def train(config=None):
     if config is None:
         config = Config()
 
-    wandb.init(
-        project=config.wandb_project,
-        name=config.wandb_run_name or None,
-        config=vars(config),
-    )
-
     model, tokenizer = load_model(config)
     model = apply_lora(model, config)
     train_ds, val_ds = get_dataset(config, tokenizer)
@@ -32,7 +25,7 @@ def train(config=None):
     training_args = TrainingArguments(
         output_dir="./outputs",
         per_device_train_batch_size=config.batch_size,
-        per_device_eval_batch_size=1,
+        per_device_eval_batch_size=16,
         gradient_accumulation_steps=config.grad_accum,
         dataloader_num_workers=4,
         dataloader_pin_memory=True,
@@ -43,9 +36,8 @@ def train(config=None):
         eval_steps=config.eval_steps,
         save_steps=config.eval_steps,
         bf16=True,
-        fp16=False,
         max_grad_norm=1.0,
-        report_to="wandb",
+        report_to="none",
     )
 
     trainer = SFTTrainer(
@@ -54,7 +46,9 @@ def train(config=None):
         eval_dataset=val_ds,
         args=training_args,
         data_collator=MaskingCollator(tokenizer, strategy=config.masking_strategy),
+        processing_class=tokenizer,
     )
 
-    trainer.add_callback(ClearCacheCallback)
+    trainer.add_callback(ClearCacheCallback())
     trainer.train()
+
