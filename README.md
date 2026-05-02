@@ -121,3 +121,11 @@ Available via `--mode bench` (backed by lm-eval 0.4.4):
 | `math` | hendrycks_math | exact_match |
 | `mmlu` | mmlu | acc |
 | `gpqa` | gpqa_diamond_generative_n_shot | acc |
+
+## Results (checkpoint-2000, c2 masking)
+
+| Benchmark | n-shot | Score |
+|---|---|---|
+| MMLU | 0 | 0.71 |
+| Hendrycks Math | 0 | 0.023 |
+| Hendrycks Math | 4 | 0.225 |
