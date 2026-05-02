@@ -1,20 +1,21 @@
 from trl import GRPOTrainer, GRPOConfig
-from config.config import Config
+from config.config import Config  # used when config=None
 from data.grpo_dataset import get_grpo_dataset
 from model.load_model import load_model
 from model.lora import apply_lora
 from train.rewards import correctness_reward, format_reward
 
 
-def train_grpo():
-    config = Config()
+def train_grpo(config=None):
+    if config is None:
+        config = Config()
 
     model, tokenizer = load_model(config)
     model = apply_lora(model, config)
     train_ds, val_ds = get_grpo_dataset(config, tokenizer)
 
     grpo_config = GRPOConfig(
-        output_dir="./outputs_grpo",
+        output_dir=config.output_dir,
         per_device_train_batch_size=config.batch_size,
         gradient_accumulation_steps=config.grad_accum,
         learning_rate=config.grpo_lr,

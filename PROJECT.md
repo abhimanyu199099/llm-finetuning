@@ -105,19 +105,19 @@ Checkpoints save every `eval_steps` (default 200) steps.
 | Benchmark | n-shot | Score |
 |---|---|---|
 | MMLU | 0 | 0.71 |
-| Hendrycks Math | 0 | 0.023 |
-| Hendrycks Math | 4 | 0.225 |
+| Hendrycks Math (full) | 4 | 0.225 |
+| MATH-500 (minerva_math) | 4 | 0.312 |
 
-Subtask breakdown (4-shot):
+MATH-500 subtask breakdown (4-shot):
 
 | Subtask | Score |
 |---|---|
-| prealgebra | 0.357 |
-| algebra | 0.234 |
-| counting_and_prob | 0.222 |
-| num_theory | 0.202 |
-| geometry | 0.196 |
-| precalc | 0.196 |
-| intermediate_algebra | 0.135 |
+| prealgebra | 0.542 |
+| algebra | 0.438 |
+| counting_and_prob | 0.335 |
+| num_theory | 0.244 |
+| geometry | 0.253 |
+| precalc | 0.121 |
+| intermediate_algebra | 0.099 |
 
-0-shot exact_match is dominated by formatting mismatch; 4-shot is the standard comparison point.
+MATH-500 (`minerva_math`) is the standard benchmark used in papers — prefer it over full `hendrycks_math` for comparisons.

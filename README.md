@@ -128,5 +128,5 @@ Available via `--mode bench` (backed by lm-eval 0.4.4):
 | Benchmark | n-shot | Score |
 |---|---|---|
 | MMLU | 0 | 0.71 |
-| Hendrycks Math | 0 | 0.023 |
-| Hendrycks Math | 4 | 0.225 |
+| Hendrycks Math (full) | 4 | 0.225 |
+| MATH-500 (minerva_math) | 4 | 0.312 |

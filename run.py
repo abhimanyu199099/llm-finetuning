@@ -75,10 +75,14 @@ if __name__ == "__main__":
         config = Config()
         config.masking_strategy = args.masking
         config.train_subset_size = args.train_subset_size
+        config.make_output_dir("sft")
         train(config)
     elif args.mode == "grpo":
+        from config.config import Config
         from train.grpo import train_grpo
-        train_grpo()
+        config = Config()
+        config.make_output_dir("grpo")
+        train_grpo(config)
     elif args.mode == "bench":
         from eval.bench import run_bench
         from config.config import Config

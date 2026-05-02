@@ -23,7 +23,7 @@ def train(config=None):
     train_ds, val_ds = get_dataset(config, tokenizer)
 
     training_args = TrainingArguments(
-        output_dir="./outputs",
+        output_dir=config.output_dir,
         per_device_train_batch_size=config.batch_size,
         per_device_eval_batch_size=16,
         gradient_accumulation_steps=config.grad_accum,

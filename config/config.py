@@ -1,4 +1,6 @@
 from dataclasses import dataclass
+import datetime
+
 
 @dataclass
 class Config:
@@ -20,4 +22,12 @@ class Config:
     max_completion_length: int = 512
     # Loss masking strategy: c1 | c2 | c3 | c5 | c6  (c4 is deferred)
     masking_strategy: str = "c1"
+    # Set by run.py before training; do not rely on the default value
+    output_dir: str = "outputs/sft_c1_local"
+
+    def make_output_dir(self, mode: str) -> str:
+        ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        suffix = f"_{self.masking_strategy}" if mode == "sft" else ""
+        self.output_dir = f"outputs/{mode}{suffix}_{ts}"
+        return self.output_dir
 
