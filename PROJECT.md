@@ -99,6 +99,7 @@ Known issues:
 
 Checkpoints save every `eval_steps` (default 200) steps.
 
+<<<<<<< HEAD
 ## Results (checkpoint-2000, c2 masking)
 
 | Benchmark | n-shot | Score |
@@ -120,3 +121,13 @@ Subtask breakdown (4-shot):
 | intermediate_algebra | 0.135 |
 
 0-shot exact_match is dominated by formatting mismatch; 4-shot is the standard comparison point.
+=======
+## Baseline Results (checkpoint-2000, c2 masking)
+
+| Benchmark | Score |
+|---|---|
+| MMLU | 0.71 |
+| Hendrycks Math (0-shot exact_match) | 0.023 |
+
+Math exact_match is low but expected at 0-shot; use `--num-fewshot 4` or the custom `evaluate.py` for meaningful math scores.
+>>>>>>> b672c47e8818ce72876a51223b378820732d9fb8
