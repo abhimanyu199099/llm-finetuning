@@ -36,8 +36,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--train-subset-size",
         type=int,
-        default=80000,
-        help="Number of training examples to use from the dataset",
+        default=None,
+        help="Number of training examples to use from the dataset (default: value in Config)",
     )
     # bench mode args
     parser.add_argument(
@@ -74,7 +74,8 @@ if __name__ == "__main__":
         from config.config import Config
         config = Config()
         config.masking_strategy = args.masking
-        config.train_subset_size = args.train_subset_size
+        if args.train_subset_size is not None:
+            config.train_subset_size = args.train_subset_size
         config.make_output_dir("sft")
         train(config)
     elif args.mode == "grpo":

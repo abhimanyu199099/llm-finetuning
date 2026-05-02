@@ -6,16 +6,16 @@ import datetime
 class Config:
     model_name: str = "Qwen/Qwen2.5-7B-Instruct"
     dataset_name: str = "open-thoughts/OpenThoughts-114k"
-    max_length: int = 4096
+    max_length: int = 8192
     batch_size: int = 2
-    grad_accum: int = 16
-    lr: float = 2e-5
-    epochs: int = 4
+    grad_accum: int = 8
+    lr: float = 2e-4
+    epochs: int = 3
     lora_r: int = 32
     lora_alpha: int = 64
     lora_dropout: float = 0.0
     eval_steps: int = 400
-    train_subset_size: int = 80000
+    train_subset_size: int = 100000
     # GRPO-specific
     grpo_lr: float = 1e-6
     num_generations: int = 4
