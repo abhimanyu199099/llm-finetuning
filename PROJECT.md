@@ -68,13 +68,14 @@ Runs batched greedy decoding (batch=8, left-padded) on held-out examples. Extrac
 ### Benchmark eval (`--mode bench`)
 Uses lm-eval 0.4.4 (`python -m lm_eval`). Available tasks confirmed installed on the cluster:
 
-| Key | lm-eval task name |
-|---|---|
-| `math` | `hendrycks_math` |
-| `mmlu` | `mmlu` |
-| `gpqa` | `gpqa_diamond_generative_n_shot` |
+| Key | lm-eval task name | Notes |
+|---|---|---|
+| `math` | `hendrycks_math` | Full dataset (~12k), strict exact_match |
+| `math500` | `minerva_math` | 500-problem subset, flexible-extract scoring |
+| `mmlu` | `mmlu` | acc |
+| `gpqa` | `gpqa_diamond_generative_n_shot` | acc |
 
-Note: `humaneval`, `aime`, and `livecodebench` are not bundled in lm-eval 0.4.4 and are not available on this install. `minerva_math` is available as an alternative to `hendrycks_math` with more lenient scoring.
+`math500`/`minerva_math` is the standard comparison benchmark used in most papers — prefer it over `math` for reporting. `humaneval`, `aime`, and `livecodebench` are not available in this lm-eval 0.4.4 install.
 
 The `--num-fewshot` flag (default 0) controls few-shot examples. For math, `--num-fewshot 4` significantly improves exact_match scores by showing the model expected output format.
 
@@ -99,7 +100,6 @@ Known issues:
 
 Checkpoints save every `eval_steps` (default 200) steps.
 
-<<<<<<< HEAD
 ## Results (checkpoint-2000, c2 masking)
 
 | Benchmark | n-shot | Score |
@@ -121,13 +121,3 @@ Subtask breakdown (4-shot):
 | intermediate_algebra | 0.135 |
 
 0-shot exact_match is dominated by formatting mismatch; 4-shot is the standard comparison point.
-=======
-## Baseline Results (checkpoint-2000, c2 masking)
-
-| Benchmark | Score |
-|---|---|
-| MMLU | 0.71 |
-| Hendrycks Math (0-shot exact_match) | 0.023 |
-
-Math exact_match is low but expected at 0-shot; use `--num-fewshot 4` or the custom `evaluate.py` for meaningful math scores.
->>>>>>> b672c47e8818ce72876a51223b378820732d9fb8

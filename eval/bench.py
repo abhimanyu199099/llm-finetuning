@@ -4,19 +4,20 @@ import json
 import datetime
 
 BENCHMARKS = {
-    "math": "hendrycks_math",
-    "mmlu": "mmlu",
-    "gpqa": "gpqa_diamond_generative_n_shot",
+    "math":     "hendrycks_math",
+    "math500":  "minerva_math",
+    "mmlu":     "mmlu",
+    "gpqa":     "gpqa_diamond_generative_n_shot",
 }
 
 CATEGORIES = {
-    "math": ["math"],
+    "math": ["math", "math500"],
     "qa":   ["mmlu", "gpqa"],
 }
 
 PRESETS = {
-    "easy": ["math", "mmlu"],
-    "hard": ["math", "gpqa"],
+    "easy": ["math500", "mmlu"],
+    "hard": ["math500", "gpqa"],
 }
 
 

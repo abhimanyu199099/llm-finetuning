@@ -43,7 +43,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--benchmarks",
         nargs="+",
-        choices=["math", "mmlu", "gpqa"],
+        choices=["math", "math500", "mmlu", "gpqa"],
         help="Specific benchmarks to run",
     )
     parser.add_argument(
